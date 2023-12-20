@@ -7,6 +7,10 @@ client = AzureOpenAI(api_key=st.secrets["AZURE_OPENAI_API_KEY"],
                      azure_endpoint=st.secrets["AZURE_OPENAI_ENDPOINT"],
                      api_version="2023-09-15-preview")
 
+st.set_page_config(page_icon = "🖼️",
+                   page_title="GPT-4V Demo"
+                   initial_sidebar_state="collapsed")
+
 #######
 st.title("GPT-4V Demo 🖼️")
 system_message = st.text_area("**Prompt**", "Your task is to identify what is in the image. Be succinct.")
