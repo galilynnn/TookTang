@@ -8,7 +8,7 @@ client = AzureOpenAI(api_key=st.secrets["AZURE_OPENAI_API_KEY"],
                      api_version="2023-09-15-preview")
 
 st.set_page_config(page_icon = "🖼️",
-                   page_title="GPT-4V Demo"
+                   page_title="GPT-4V Demo",
                    initial_sidebar_state="collapsed")
 
 #######
