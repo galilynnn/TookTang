@@ -39,16 +39,17 @@ if st.button("Run"):
         input_prompt = [{"type": "image_url", "image_url": {
             "url": f"data:image/jpeg;base64,{image_base64}",
             "detail": resolution}}]
-
-        chat_completion = client.chat.completions.create(
-                model="gpt-4v",
-                messages=[
-                    {"role": "system", "content": system_message},
-                    {"role": "user", "content": input_prompt}],
-                # response_format={"type": response_format},
-                max_tokens=max_tokens,
-                seed=0,
-                temperature=temperature)
+        
+        with st.spinner('Loading...'):
+            chat_completion = client.chat.completions.create(
+                    model="gpt-4v",
+                    messages=[
+                        {"role": "system", "content": system_message},
+                        {"role": "user", "content": input_prompt}],
+                    # response_format={"type": response_format},
+                    max_tokens=max_tokens,
+                    seed=0,
+                    temperature=temperature)
 
         message_content = chat_completion.choices[0].message.content
 
