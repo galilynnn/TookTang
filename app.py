@@ -22,13 +22,6 @@ with st.sidebar:
     temperature = st.slider('**Temperature**', min_value=0.0, max_value=2.0, step=0.1, value=0.0)
     seed = st.number_input("**Seed**", min_value=0, max_value=999, step=1)
     max_tokens = st.slider('**Max Tokens**', 1, 500, 250)
-    # json_mode = st.toggle("**JSON Mode**")
-    # st.write("*You must prompt the model to output 'JSON'*")
-
-    # if json_mode == True:
-    #     response_format = "json_object"
-    # else:
-    #     response_format = "text"        
 
 if st.button("Run"):
     if input_pic is None:
@@ -46,7 +39,6 @@ if st.button("Run"):
                     messages=[
                         {"role": "system", "content": system_message},
                         {"role": "user", "content": input_prompt}],
-                    # response_format={"type": response_format},
                     max_tokens=max_tokens,
                     seed=0,
                     temperature=temperature)
