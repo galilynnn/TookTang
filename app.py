@@ -68,6 +68,7 @@ def thank_you_page():
     st.title("Thank you!")
     st.write("We appreciate your participation. Please tell us about your feedback to help us with PDCA (Plan, Do, Check, Act) improvements.")
     
+    # this will be changed to a form in the future
     feedback = st.text_area("Your feedback", "")
     if st.button("Submit Feedback"):
         st.success("Thank you for your feedback!")
@@ -146,6 +147,7 @@ def image_processing_page():
                     st.error("Please check your API configuration and model availability.")
     
     # Display the buttons if processing is complete (submitted is True)
+    # Realign buttons later
     if st.session_state.submitted:
         col1, col2, col3 = st.columns(3)
         with col1:
