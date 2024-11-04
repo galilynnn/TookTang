@@ -1,0 +1,142 @@
+import base64
+import streamlit as st
+from openai import AzureOpenAI
+from io import BytesIO
+from PIL import Image
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
+# Configure the page
+st.set_page_config(page_icon="🖼️", page_title="TookTang App", initial_sidebar_state="collapsed")
+system_message = """
+Model Instructor: Welcome to TookTang App Chatbot! ...
+"""
+
+# Initialize Sheets
+def init_gspread_client():
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    credentials_dict = st.secrets["gcp_service_account"]
+    credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
+    client = gspread.authorize(credentials)
+    return client
+
+# Send data to Sheets
+def send_to_google_sheets(data, sheet_name="Sheet1"):
+    client = init_gspread_client()
+    sheet = client.open(sheet_name).sheet1
+    sheet.append_row(data)
+    return True
+
+# Azure OpenAI client
+@st.cache_resource
+def get_openai_client():
+    return AzureOpenAI(
+        api_key=st.secrets["azure"]["AZURE_OPENAI_API_KEY"],
+        azure_endpoint=st.secrets["azure"]["AZURE_OPENAI_ENDPOINT"],
+        api_version="2023-03-15-preview"
+    )
+client = get_openai_client()
+
+# Compress image 
+@st.cache_data
+def compress_image(file):
+    image = Image.open(file)
+    if image.mode == 'RGBA':
+        image = image.convert('RGB')
+    img_byte_arr = BytesIO()
+    image.save(img_byte_arr, format='JPEG', quality=85, optimize=True)
+    return img_byte_arr.getvalue()
+
+# Trash Submission and Survey Page
+def trash_submission_page():
+    st.title("TookTang 🖼️ - Trash Submission and Survey")
+    student_id = st.text_input("Student ID (11-digit number)", max_chars=11)
+    uploaded_file = st.file_uploader("Upload a photo of the trash", type=["jpg", "jpeg", "png"])
+    trash_can_color = st.selectbox("Select the trash can color you think is correct", ["Blue", "Green", "Yellow", "Red"])
+
+    if st.button("Submit Survey"):
+        if student_id and uploaded_file and trash_can_color:
+            compressed_image = compress_image(uploaded_file)
+            image_base64 = base64.b64encode(compressed_image).decode('utf-8')
+            data = [student_id, image_base64, trash_can_color]
+            if send_to_google_sheets(data):
+                st.session_state["submitted"] = True
+                st.success("Survey data saved! Proceeding to image processing.")
+                st.experimental_rerun()
+        else:
+            st.error("Please complete all fields.")
+
+# Image Processing with AI
+def ai_processing_page():
+    st.title("TookTang 🖼️ - AI Processing")
+    student_id = st.session_state["student_id"]
+    image_base64 = st.session_state["image_base64"]
+
+    if st.button("Run AI"):
+        try:
+            input_prompt = [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}]
+            chat_completion = client.chat.completions.create(
+                model="gpt-4",
+                messages=[{"role": "system", "content": system_message}, {"role": "user", "content": input_prompt}]
+            )
+            suggestion = chat_completion.choices[0].message.content
+            st.info(f"AI Suggestion: {suggestion}")
+            st.session_state["ai_done"] = True
+            st.experimental_rerun()
+        except Exception as e:
+            st.error(f"Error during AI processing: {str(e)}")
+
+# Thank You Page with Feedback Form
+def thank_you_page():
+    st.title("Thank You for Using TookTang!")
+    trash_can_result = st.selectbox("Trash can color you used:", ["Blue", "Green", "Yellow", "Red"])
+    satisfaction = st.slider("Satisfaction (1 to 5)", 1, 5)
+    feedback = st.text_area("Any feedback for us?")
+
+    if st.button("Submit Feedback"):
+        data = [trash_can_result, satisfaction, feedback]
+        if send_to_google_sheets(data):
+            st.success("Feedback submitted! Thank you!")
+            st.session_state.clear()
+            st.experimental_rerun()
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("Back"):
+            st.session_state["ai_done"] = False
+            st.experimental_rerun()
+    with col2:
+        if st.button("Try Again"):
+            st.session_state.clear()
+            st.experimental_rerun()
+    with col3:
+        if st.button("Done"):
+            st.write("Thank you for using TookTang! See you next time.")
+
+# Page Routing
+if "submitted" not in st.session_state:
+    st.session_state["submitted"] = False
+if "ai_done" not in st.session_state:
+    st.session_state["ai_done"] = False
+
+if st.session_state.get("ai_done", False):
+    thank_you_page()
+elif st.session_state.get("submitted", False):
+    ai_processing_page()
+else:
+    trash_submission_page()
+
+
+Here's a friendlier, emoji-enhanced version:
+
+---
+
+**TookTang: Your Eco-Friendly Waste Management Buddy 🌍♻️**
+
+TookTang is here to help you manage waste responsibly with a little help from AI! With TookTang, you can:
+
+- 🗑️ **Sort and dispose** of all types of waste the right way.
+- 🌱 **Learn tips** on reducing, reusing, and recycling for a greener world.
+- 🔄 **Explore Circular Economy** principles to make a lasting impact.
+
+Ready to get started? 😊 Take a quick survey to personalize your experience, and let’s make waste management easy and fun! 🌟
