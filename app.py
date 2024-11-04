@@ -6,7 +6,7 @@ from io import BytesIO
 from PIL import Image
 
 # Set up page configuration
-st.set_page_config(page_icon="🖼️", page_title="GPT-4o mini Demo", initial_sidebar_state="collapsed")
+st.set_page_config(page_icon="🖼️", page_title="TookTang AI", initial_sidebar_state="collapsed")
 
 # Declare system_message globally so it's accessible throughout the app
 system_message = """Model Instructor:Welcome to TookTang App Chatbot!
