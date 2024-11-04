@@ -16,6 +16,12 @@ You can ask me about:
 •	Tips on reducing, reusing, and recycling waste at home or work.
 •	Learning more about the Circular Economy principles and how to apply them in your daily life.
 •	Questions about local waste management regulations.
+**Bin Guide:**
+- Red bins: Toxic waste, infectious waste
+- Yellow bins: Recyclable waste
+- Green bins: Biodegradable waste
+- Blue bins: General waste or non-biodegradable waste
+
 Feel free to ask, and I’ll guide you through each step of disposing of your waste responsibly!
 Context for the TookTang App:
 The TookTang app is designed to simplify waste management by helping users properly sort waste through an AI-powered system that matches waste with the correct bin.
@@ -49,39 +55,38 @@ if 'done' not in st.session_state:
 
 def start_page():
     st.title("Welcome to TookTang 🖼️")
+    # Prompt user to complete the form before using the app
     st.write("""
-    **TookTang** is your AI-powered assistant for managing waste effectively.
-    With this app, you can:
-    - Properly sort and dispose of different types of waste.
-    - Learn tips on reducing, reusing, and recycling.
-    - Explore Circular Economy principles.
-    
-    Click below to get started and let’s make waste management easy and fun!
+    **TookTang: Your Eco-Friendly Waste Management Buddy 🌍♻️** 
+    TookTang is here to help you manage waste responsibly with a little help from AI! With TookTang, you can:
+    - 🗑️ **Sort and dispose** of all types of waste the right way.
+    - 🌱 **Learn tips** on reducing, reusing, and recycling for a greener world.
+    - 🔄 **Explore Circular Economy** principles to make a lasting impact.
+    Ready to get started? 😊 Take a quick survey to personalize your experience, and let’s make waste management easy and fun! 🌟
+    \n 📋[TookTang App Form](https://forms.gle/Tj8qxtuefRjPJKTJ7)
+
     """)
     
     if st.button("Get Started"):
         st.session_state.started = True
         st.experimental_rerun()
 
-
 def thank_you_page():
     st.title("Thank you!")
-    st.write("We appreciate your participation. Please tell us about your feedback to help us with PDCA (Plan, Do, Check, Act) improvements.")
-    
-    # this will be changed to a form in the future
-    feedback = st.text_area("Your feedback", "")
-    if st.button("Submit Feedback"):
-        st.success("Thank you for your feedback!")
+    st.write("""
+    ✨ **Thank you for using the TookTang App!** ✨
+
+    We’d love to hear from you! For more info or to share your feedback, please visit:  
+    📋 [**TookTang Feedback Form**](https://forms.gle/FYbrQ1M9r9Asuv2P6)
+    """)
     
     col1, col2 = st.columns(2)
     with col1:
-        # Reset the session state and return to the start page
         if st.button("Back to Start"):
             st.session_state.started = False
             st.session_state.submitted = False
             st.session_state.done = False
             st.experimental_rerun()
-
 
 def image_processing_page():
     st.title("TookTang 🖼️")
@@ -165,7 +170,6 @@ def image_processing_page():
             if st.button("Done"):
                 st.session_state.done = True
                 st.experimental_rerun()
-
 
 # pages logic 
 if st.session_state.done:
