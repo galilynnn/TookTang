@@ -63,7 +63,7 @@ def start_page():
     - 🌱 **Learn tips** on reducing, reusing, and recycling for a greener world.
     - 🔄 **Explore Circular Economy** principles to make a lasting impact.
     Ready to get started? 😊 Take a quick survey to personalize your experience, and let’s make waste management easy and fun! 🌟
-    \n 📋[TookTang App Form](https://forms.gle/Tj8qxtuefRjPJKTJ7)
+    \n 📋[**Please click here for Pre TookTang survey form**](https://forms.gle/Tj8qxtuefRjPJKTJ7)
 
     """)
     
@@ -77,7 +77,7 @@ def thank_you_page():
     ✨ **Thank you for using the TookTang App!** ✨
 
     We’d love to hear from you! For more info or to share your feedback, please visit:  
-    📋 [**TookTang Feedback Form**](https://forms.gle/FYbrQ1M9r9Asuv2P6)
+    \n 📋[**Please click here for Post TookTang survey form**](https://forms.gle/FYbrQ1M9r9Asuv2P6)
     """)
     
     col1, col2 = st.columns(2)
