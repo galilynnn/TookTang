@@ -62,8 +62,7 @@ def start_page():
     - 🗑️ **Sort and dispose** of all types of waste the right way.
     - 🌱 **Learn tips** on reducing, reusing, and recycling for a greener world.
     - 🔄 **Explore Circular Economy** principles to make a lasting impact.
-    Ready to get started? 😊 Take a quick survey to personalize your experience, and let’s make waste management easy and fun! 🌟
-    \n 📋[**Please click here for Pre TookTang survey form**](https://forms.gle/Tj8qxtuefRjPJKTJ7)
+    Ready to get started? 😊 Let’s make waste management easy and fun! 🌟
 
     """)
     
@@ -76,8 +75,6 @@ def thank_you_page():
     st.write("""
     ✨ **Thank you for using the TookTang App!** ✨
 
-    We’d love to hear from you! For more info or to share your feedback, please visit:  
-    \n 📋[**Please click here for Post TookTang survey form**](https://forms.gle/FYbrQ1M9r9Asuv2P6)
     """)
     
     col1, col2 = st.columns(2)
