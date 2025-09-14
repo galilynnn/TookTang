@@ -1,180 +1,373 @@
 import base64
 import streamlit as st
 from openai import AzureOpenAI
-from utils import encode_image
-from io import BytesIO
+import time
 from PIL import Image
+from io import BytesIO
 
 # Set up page configuration
-st.set_page_config(page_icon="🖼️", page_title="TookTang AI", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_icon="🖼️", 
+    page_title="TookTang AI", 
+    initial_sidebar_state="collapsed",
+    layout="wide",
+    menu_items=None 
+)
 
-# Declare system_message globally so it's accessible throughout the app
-system_message = """Model Instructor:Welcome to TookTang App Chatbot!
-I’m here to help you manage your waste accurately and efficiently.
-You can ask me about:	
-•	How to properly sort and dispose of different types of waste by showing you which bin matches your waste.
-•	Tips on reducing, reusing, and recycling waste at home or work.
-•	Learning more about the Circular Economy principles and how to apply them in your daily life.
-•	Questions about local waste management regulations.
-**Bin Guide:**
-- Red bins: Toxic waste, infectious waste
-- Yellow bins: Recyclable waste
-- Green bins: Biodegradable waste
-- Blue bins: General waste or non-biodegradable waste
+# System message for AI 
+system_message = st.secrets["ai_prompts"]["system_message"]
 
-Feel free to ask, and I’ll guide you through each step of disposing of your waste responsibly!
-Context for the TookTang App:
-The TookTang app is designed to simplify waste management by helping users properly sort waste through an AI-powered system that matches waste with the correct bin.
-This app educates users on sustainable practices and encourages participation through interactive features.
-It supports Circular Economy principles like Rethink, Reuse, Reduce, and Recycle, aiming to reduce the environmental impact of improper waste disposal.
-This chatbot is part of TookTang’s mission to foster sustainable waste management practices, reduce environmental harm, and empower individuals to contribute to a cleaner, greener planet.
-This is an example of what it should be.
-Your permanent prompt: You're a smart AI specialized in the 4Rs of the Circular Economy.
-You know exactly what to do and where to dispose of waste, offering friendly suggestions along the way,
-Your respond should be short and bullet point, so that it will be easier when dev substract the word for integration process.
-Keep in mind that the information provided should based from Thailand information.
-"""
-
-# Initialize the AzureOpenAI client outside of the Streamlit app
+# Initialize the AzureOpenAI client
 @st.cache_resource
 def get_openai_client():
-    return AzureOpenAI(api_key=st.secrets["AZURE_OPENAI_API_KEY"],
-                       azure_endpoint=st.secrets["AZURE_OPENAI_ENDPOINT"],
-                       api_version="2023-03-15-preview")
+    return AzureOpenAI(
+        api_key=st.secrets["AZURE_OPENAI_API_KEY"],
+        azure_endpoint=st.secrets["AZURE_OPENAI_ENDPOINT"],
+        api_version="2024-02-15-preview"
+    )
 
 client = get_openai_client()
 
-# Initialize pages state from button clicks
-if 'started' not in st.session_state:
-    st.session_state.started = False  
-if 'submitted' not in st.session_state:
-    st.session_state.submitted = False  
-if 'done' not in st.session_state:
-    st.session_state.done = False  
+# Initialize session state - CLEAN VERSION
+if 'show_result' not in st.session_state:
+    st.session_state.show_result = False
+if 'result_message' not in st.session_state:
+    st.session_state.result_message = ""
+if 'popup_start_time' not in st.session_state:
+    st.session_state.popup_start_time = 0
+# Counters for today's impact
+if 'items_sorted_today' not in st.session_state:
+    st.session_state.items_sorted_today = 0
+if 'users_helped_today' not in st.session_state:
+    st.session_state.users_helped_today = 0
+if 'weight_sorted_today' not in st.session_state:
+    st.session_state.weight_sorted_today = 0.0
 
-
-def start_page():
-    st.title("Welcome to TookTang 🖼️")
-    # Prompt user to complete the form before using the app
-    st.write("""
-    **TookTang: Your Eco-Friendly Waste Management Buddy 🌍♻️** 
-    TookTang is here to help you manage waste responsibly with a little help from AI! With TookTang, you can:
-    - 🗑️ **Sort and dispose** of all types of waste the right way.
-    - 🌱 **Learn tips** on reducing, reusing, and recycling for a greener world.
-    - 🔄 **Explore Circular Economy** principles to make a lasting impact.
-    Ready to get started? 😊 Take a quick survey to personalize your experience, and let’s make waste management easy and fun! 🌟
-    \n 📋[**Please click here for Pre TookTang survey form**](https://forms.gle/Tj8qxtuefRjPJKTJ7)
-
-    """)
+def update_impact_stats(ai_response):
+    """Update today's impact statistics based on actual trash items and weight"""
     
-    if st.button("Get Started"):
-        st.session_state.started = True
-        st.experimental_rerun()
-
-def thank_you_page():
-    st.title("Thank you!")
-    st.write("""
-    ✨ **Thank you for using the TookTang App!** ✨
-
-    We’d love to hear from you! For more info or to share your feedback, please visit:  
-    \n 📋[**Please click here for Post TookTang survey form**](https://forms.gle/FYbrQ1M9r9Asuv2P6)
-    """)
+    # Count actual trash items from AI response
+    def count_trash_items_and_weight(response):
+        
+        # Temporary fallback: if no weight found, use default weights
+        if "น้ำหนักประมาณ" in response:
+            import re
+            weight_match = re.search(r'น้ำหนักประมาณ[:\s]*(\d+)\s*g', response)
+            if weight_match:
+                weight = int(weight_match.group(1))
+                return 1, weight
+        
+        # Count items and estimate weight if no weight provided
+        elif "รายการขยะที่" in response:
+            import re
+            item_matches = re.findall(r'รายการขยะที่\s*\d+', response)
+            item_count = len(item_matches)
+            estimated_weight = item_count * 20  # 20g per item estimate
+            return item_count, estimated_weight
+        
+        # Single item without weight - estimate
+        elif any(word in response.lower() for word in ["ถังขยะสี", "ถังแดง", "ถังเหลือง"]):
+            return 1, 20  # Default 20g
+        
+        return 0, 0
     
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Back to Start"):
-            st.session_state.started = False
-            st.session_state.submitted = False
-            st.session_state.done = False
-            st.experimental_rerun()
+    # Count actual trash items and weight
+    trash_count, total_weight = count_trash_items_and_weight(ai_response)
+    
+    # Update counters
+    st.session_state.items_sorted_today += trash_count  # Add actual trash pieces
+    st.session_state.users_helped_today += 1  # Still count users (sessions)
+    
+    # Use actual weight for calculation
+    weight_in_kg = total_weight / 1000
+    st.session_state.weight_sorted_today += (total_weight / 1000)  # Convert to kg
 
-def image_processing_page():
-    st.title("TookTang 🖼️")
-
-    input_method = st.radio("Choose input method:", ("Upload Photo", "Take Photo"))
-
-    # Function to process the image
-    @st.cache_data
-    def process_image(file):
-        image = Image.open(file)
-        if image.mode == 'RGBA':
-            image = image.convert('RGB')
-        img_byte_arr = BytesIO()
-        image.save(img_byte_arr, format='JPEG', quality=85, optimize=True)
-        return img_byte_arr.getvalue()
-
-    if input_method == "Upload Photo":
-        uploaded_file = st.file_uploader("**Upload a photo**", type=["jpg", "jpeg", "png"])
-        if uploaded_file is not None:
-            input_pic = process_image(uploaded_file)
-            st.image(input_pic, caption="Uploaded Image", use_column_width=True)
-        else:
-            input_pic = None
-    else:
-        input_pic = st.camera_input("**Take a photo**")
-
-    with st.sidebar:
-        st.subheader("Advanced Settings ⚙️")
-        resolution = st.selectbox('**Image Quality**', ('low', 'high', 'auto'))
-        temperature = st.slider('**Temperature**', min_value=0.0, max_value=2.0, step=0.1, value=0.0)
-        seed = st.number_input("**Seed**", min_value=0, max_value=999, step=1)
-        max_tokens = st.slider('**Max Tokens**', 1, 4000, 2000)
-
-    if st.button("Run"):
-        if input_pic is None:
-            st.toast('Please provide an image', icon='⚠️')
-        else:
-            image_base64 = base64.b64encode(input_pic).decode('utf-8') if input_method == "Upload Photo" else encode_image(input_pic)
-
-            input_prompt = [{"type": "image_url", "image_url": {
+def process_with_ai(image_base64):
+    """Process image with Azure OpenAI"""
+    try:
+        input_prompt = [{
+            "type": "image_url", 
+            "image_url": {
                 "url": f"data:image/jpeg;base64,{image_base64}",
-                "detail": resolution}}]
-            
-            with st.spinner('Processing...'):
-                try:
-                    chat_completion = client.chat.completions.create(
-                        model="gpt-4o",
-                        messages=[
-                            {"role": "system", "content": system_message},
-                            {"role": "user", "content": input_prompt}],
-                        max_tokens=max_tokens,
-                        seed=seed,
-                        temperature=temperature)
+                "detail": "high"
+            }
+        }]
+        
+        chat_completion = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": input_prompt}
+            ],
+            max_tokens=500,
+            temperature=0.0
+        )
+        
+        # Update statistics when AI successfully processes an image
+        update_impact_stats(chat_completion.choices[0].message.content)
+        
+        return chat_completion.choices[0].message.content
+    except Exception as e:
+        return f"เกิดข้อผิดพลาดในการประมวลผลภาพ: {str(e)}"
 
-                    message_content = chat_completion.choices[0].message.content
-                    st.info(message_content)
-                    
-                    # Set session_state.submitted to True after successful processing
-                    st.session_state.submitted = True
-
-                except Exception as e:
-                    st.error(f"An error occurred: {str(e)}")
-                    st.error("Please check your API configuration and model availability.")
+def show_popup_result(message):
+    """Display result as a modal popup"""
     
-    # Display the buttons if processing is complete (submitted is True)
-    # Realign buttons later
-    if st.session_state.submitted:
-        col1, col2, col3 = st.columns(3)
+    # Extract which bin is correct from the AI message
+    def get_correct_bin(message):
+        message_lower = message.lower()
+        
+        # Count mentions of each bin color
+        red_count = message_lower.count("ถังขยะสีแดง") + message_lower.count("ถังแดง")
+        yellow_count = message_lower.count("ถังขยะสีเหลือง") + message_lower.count("ถังเหลือง")
+        green_count = message_lower.count("ถังขยะสีเขียว") + message_lower.count("ถังเขียว")
+        blue_count = message_lower.count("ถังขยะสีน้ำเงิน") + message_lower.count("ถังน้ำเงิน")
+        
+        # If multiple items, highlight the most mentioned bin
+        # If single item, highlight that bin
+        max_count = max(red_count, yellow_count, green_count, blue_count)
+        
+        if max_count == 0:
+            return None
+        elif red_count == max_count:
+            return "red"
+        elif yellow_count == max_count:
+            return "yellow"
+        elif green_count == max_count:
+            return "green"
+        elif blue_count == max_count:
+            return "blue"
+        
+        return None
+    
+    correct_bin = get_correct_bin(message)
+    
+    # Use Streamlit's modal functionality
+    @st.dialog("🗂️ คู่มือการแยกขยะ")
+    def show_result_modal():
+        st.markdown(message)
+        st.markdown("---")
+        
+        # Bin Guide with highlighting
+        st.markdown("### 🗑️ คู่มือถังขยะ")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        # Red bin
         with col1:
-            if st.button("Back"):
-                st.session_state.submitted = False
-                st.session_state.started = True  # Stay on the image processing page
-                st.experimental_rerun()
-
+            red_style = """
+            <div style="text-align: center; padding: 20px; height: 140px; display: flex; flex-direction: column; justify-content: center; background-color: #ffebee; border: 3px solid #f44336; border-radius: 10px; {}">
+                <div style="font-size: 32px; margin-bottom: 8px;">🔴</div>
+                <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px; color: #000;">แดง</div>
+                <div style="font-size: 12px; color: #666;">ขยะติดเชื้อ</div>
+            </div>
+            """.format("box-shadow: 0 0 15px #f44336; transform: scale(1.05);" if correct_bin == "red" else "")
+            st.markdown(red_style, unsafe_allow_html=True)
+        
+        # Yellow bin
         with col2:
-            if st.button("Try Again?"):
-                st.session_state.submitted = False
-                st.experimental_rerun()
-
+            yellow_style = """
+            <div style="text-align: center; padding: 20px; height: 140px; display: flex; flex-direction: column; justify-content: center; background-color: #fffde7; border: 3px solid #ffeb3b; border-radius: 10px; {}">
+                <div style="font-size: 32px; margin-bottom: 8px;">🟡</div>
+                <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px; color: #000;">เหลือง</div>
+                <div style="font-size: 12px; color: #666;">ขยะรีไซเคิล</div>
+            </div>
+            """.format("box-shadow: 0 0 15px #ffeb3b; transform: scale(1.05);" if correct_bin == "yellow" else "")
+            st.markdown(yellow_style, unsafe_allow_html=True)
+        
+        # Green bin
         with col3:
-            if st.button("Done"):
-                st.session_state.done = True
-                st.experimental_rerun()
+            green_style = """
+            <div style="text-align: center; padding: 20px; height: 140px; display: flex; flex-direction: column; justify-content: center; background-color: #e8f5e8; border: 3px solid #4caf50; border-radius: 10px; {}">
+                <div style="font-size: 32px; margin-bottom: 8px;">🟢</div>
+                <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px; color: #000;">เขียว</div>
+                <div style="font-size: 12px; color: #666;">ขยะย่อยสลายได้</div>
+            </div>
+            """.format("box-shadow: 0 0 15px #4caf50; transform: scale(1.05);" if correct_bin == "green" else "")
+            st.markdown(green_style, unsafe_allow_html=True)
+        
+        # Blue bin
+        with col4:
+            blue_style = """
+            <div style="text-align: center; padding: 20px; height: 140px; display: flex; flex-direction: column; justify-content: center; background-color: #e3f2fd; border: 3px solid #2196f3; border-radius: 10px; {}">
+                <div style="font-size: 32px; margin-bottom: 8px;">🔵</div>
+                <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px; color: #000;">น้ำเงิน</div>
+                <div style="font-size: 12px; color: #666;">ขยะทั่วไป</div>
+            </div>
+            """.format("box-shadow: 0 0 15px #2196f3; transform: scale(1.05);" if correct_bin == "blue" else "")
+            st.markdown(blue_style, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Footer message
+        st.info("🌱 อย่าลืม: การทำความสะอาดขยะช่วยเพิ่มคุณภาพการรีไซเคิล!")
+        
+        # Close button
+        if st.button("✅ เข้าใจแล้ว", type="primary", use_container_width=True):
+            st.session_state.show_result = False
+            st.session_state.result_message = ""
+            st.rerun()
+    
+    # Show the modal
+    show_result_modal()
 
-# pages logic 
-if st.session_state.done:
-    thank_you_page() 
-elif st.session_state.started:
-    image_processing_page() 
-else:
-    start_page() 
+def show_info_page():
+    """Display TookTang information page"""
+    st.markdown("""
+    <div style="text-align: center; padding: 20px;">
+        <div style="color: #2E8B57; font-size: 48px; font-weight: bold;">🗂️ TookTang AI</div>
+        <div style="color: #666; font-size: 24px; margin-top: 10px;">ผู้ช่วยแยกขยะอัจฉริยะ</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # What is TookTang
+    st.markdown("## 🤔 TookTang คืออะไร?")
+    st.markdown("""
+    TookTang เป็นแอปพลิเคชันที่ใช้ปัญญาประดิษฐ์ช่วยในการแยกขยะอย่างถูกต้อง 
+    เพื่อส่งเสริมการจัดการขยะที่มีประสิทธิภาพและเป็นมิตรกับสิ่งแวดล้อม
+    """)
+    
+    # How it works
+    st.markdown("## 🔧 วิธีการใช้งาน")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        ### 📸 ถ่ายภาพ
+        ถ่ายภาพขยะที่ต้องการทิ้ง
+        """)
+    
+    with col2:
+        st.markdown("""
+        ### 🤖 AI ให้คำแนะนำ
+        ระบบ AI จะระบุประเภทขยะและถังที่เหมาะสม
+        """)
+    
+    with col3:
+        st.markdown("""
+        ### 🗑️ ล้างขยะและแยกตามประเภท
+        ล้างขยะและทิ้งตามที่ AI แนะนำที่ถังที่ระบบแนะนำได้เลย
+        """)
+    
+    # Bin types
+    st.markdown("## 🗑️ ประเภทถังขยะ")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown("""
+        <div style="text-align: center; padding: 15px; background-color: #ffebee; border: 3px solid #f44336; border-radius: 10px; height: 120px; display: flex; flex-direction: column; justify-content: center;">
+            <div style="font-size: 32px; margin-bottom: 8px;">🔴</div>
+            <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px; color: #000;">แดง</div>
+            <div style="font-size: 12px; color: #666;">ขยะติดเชื้อ</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div style="text-align: center; padding: 15px; background-color: #fffde7; border: 3px solid #ffeb3b; border-radius: 10px; height: 120px; display: flex; flex-direction: column; justify-content: center;">
+            <div style="font-size: 32px; margin-bottom: 8px;">🟡</div>
+            <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px; color: #000;">เหลือง</div>
+            <div style="font-size: 12px; color: #666;">ขยะรีไซเคิล</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown("""
+        <div style="text-align: center; padding: 15px; background-color: #e8f5e8; border: 3px solid #4caf50; border-radius: 10px; height: 120px; display: flex; flex-direction: column; justify-content: center;">
+            <div style="font-size: 32px; margin-bottom: 8px;">🟢</div>
+            <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px; color: #000;">เขียว</div>
+            <div style="font-size: 12px; color: #666;">ขยะย่อยสลายได้</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col4:
+        st.markdown("""
+        <div style="text-align: center; padding: 15px; background-color: #e3f2fd; border: 3px solid #2196f3; border-radius: 10px; height: 120px; display: flex; flex-direction: column; justify-content: center;">
+            <div style="font-size: 32px; margin-bottom: 8px;">🔵</div>
+            <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px; color: #000;">น้ำเงิน</div>
+            <div style="font-size: 12px; color: #666;">ขยะทั่วไป</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Benefits
+    st.markdown("## 🌱 ประโยชน์ของการแยกขยะ")
+    st.markdown("""
+    - ♻️ **ลดขยะ**: ช่วยลดปริมาณขยะที่ต้องกำจัด
+    - 🌍 **ช่วยสิ่งแวดล้อม**: ลดมลพิษและการใช้ทรัพยากรใหม่
+    - 💰 **ประหยัด**: สร้างมูลค่าจากการรีไซเคิล
+    - 📚 **เรียนรู้**: เพิ่มความรู้เรื่องการจัดการขยะ
+    """)
+    
+    # Footer
+    st.markdown("---")
+    st.markdown("""
+    <div style="text-align: center; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">
+        <div style="color: #666; font-size: 14px; margin-bottom: 10px;">
+            พัฒนาโดยทีม TookTang เพื่อสิ่งแวดล้อมที่ดีขึ้น 🌱
+        </div>
+        <div style="font-size: 12px;">
+            <a href="https://www.instagram.com/tooktang.kmutt/" target="_blank" style="color: #2E8B57; text-decoration: none; margin: 0 10px;">ติดตามพวกเราได้ที่</a>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+def main_interface():    
+    """Main Interface with navigator"""
+
+    tab1, tab2 = st.tabs(["🗑️ แยกขยะ", "ℹ️ เกี่ยวกับ TookTang"])
+
+    with tab1:
+        # Simple layout
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.markdown("### 📹 ถ่ายภาพขยะ")
+            
+            # Simple camera input
+            captured_image = st.camera_input("ถ่ายภาพขยะของคุณ", key="main_camera")
+            
+            # Process button
+            if st.button("🔍 วิเคราะห์ขยะ", type="primary", use_container_width=True):
+                if captured_image is None:
+                    st.warning('📸 กรุณาถ่ายภาพก่อน')
+                else:
+                    with st.spinner('🤖 กำลังวิเคราะห์ขยะของคุณ...'):
+                        try:
+                            # Convert image to base64
+                            image_bytes = captured_image.getvalue()
+                            image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+                            
+                            # Get AI response
+                            result = process_with_ai(image_base64)
+                            st.session_state.result_message = result
+                            st.session_state.show_result = True
+                            st.session_state.popup_start_time = time.time()
+                            
+                            st.rerun()
+                            
+                        except Exception as e:
+                            st.error(f"เกิดข้อผิดพลาดในการประมวลผล: {e}")
+        
+        with col2:
+            st.markdown("### 📈 Impact ของวันนี้")
+            st.metric("รายการที่แยกแล้ว", f"🗑️ {st.session_state.items_sorted_today}")
+            st.metric("จำนวนคนทิ้งขยะ", f"👥 {st.session_state.users_helped_today}")
+        
+        # Show popup result if available
+        if st.session_state.show_result and st.session_state.result_message:
+            show_popup_result(st.session_state.result_message)
+            
+            # Auto-hide popup after 8 seconds
+            if time.time() - st.session_state.popup_start_time > 8:
+                st.session_state.show_result = False
+                st.session_state.result_message = ""
+                st.rerun()
+
+    with tab2:
+        show_info_page()
+
+# Run the interface
+main_interface()

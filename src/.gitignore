@@ -1,0 +1,40 @@
+.streamlit/secrets.toml
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE files
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Development containers
+.devcontainer/
+devcontainer.json
+
+# Python environment
+py.env.cfg
+pydeck.json
+
+# Jupyter
+.ipynb_checkpoints/
+
