@@ -213,15 +213,6 @@ def show_popup_result(message):
 
 def show_info_page():
     """Display TookTang information page"""
-    st.markdown("""
-    <div style="text-align: center; padding: 20px;">
-        <div style="color: #2E8B57; font-size: 48px; font-weight: bold;">🗂️ TookTang AI</div>
-        <div style="color: #666; font-size: 24px; margin-top: 10px;">ผู้ช่วยแยกขยะอัจฉริยะ</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
     # What is TookTang
     st.markdown("## 🤔 TookTang คืออะไร?")
     st.markdown("""
